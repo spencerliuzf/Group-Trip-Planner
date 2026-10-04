@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Group Trip Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column "travel folder" — summary stub on top, tabbed working area below. */
+:root{
+  --bg:#eef1ec; --surface:#ffffff; --surface-2:#f5f7f3; --ink:#14302b; --muted:#5d716b; --line:#d5ddd6;
+  --accent:#0f6b5c; --accent-ink:#ffffff; --sun:#f2b632; --sun-ink:#3b2a00;
+  --good:#2f7d46; --warn:#b5651d; --bad:#b23a3a;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1a18; --surface:#16231f; --surface-2:#1c2c28; --ink:#e3ece8; --muted:#94a8a1; --line:#2b3d38;
+  --accent:#4fc2a9; --accent-ink:#06201a; --sun:#f2b632; --sun-ink:#2b1f00;
+  --good:#6cc487; --warn:#e3a05e; --bad:#ec7b7b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a18; --surface:#16231f; --surface-2:#1c2c28; --ink:#e3ece8; --muted:#94a8a1; --line:#2b3d38;
+  --accent:#4fc2a9; --accent-ink:#06201a; --sun:#f2b632; --sun-ink:#2b1f00;
+  --good:#6cc487; --warn:#e3a05e; --bad:#ec7b7b; color-scheme:dark}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+.est a{color:var(--accent);font-weight:600;margin-right:12px;display:inline-block}
+.lock{max-width:380px;margin:12vh auto;padding-inline:16px;display:grid;gap:12px}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+.wrap{max-width:860px;margin:0 auto;padding-inline:16px;padding-block:20px 60px;display:grid;gap:18px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Stub (summary ticket) */
+.stub{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:grid;grid-template-columns:1fr auto}
+.stub-main{padding:18px 20px;display:grid;gap:10px;min-width:0}
+.stub-main h1{font-size:clamp(26px,6vw,38px);font-weight:800;line-height:1.05}
+.route{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:14px}
+.route b{color:var(--ink);font-weight:600}
+.stub-side{background:var(--accent);color:var(--accent-ink);padding:18px 20px;display:grid;align-content:center;gap:2px;min-width:160px;position:relative;border-left:2px dashed color-mix(in srgb,var(--accent-ink) 45%,transparent)}
+.stub-side .big{font-family:var(--f-mono);font-size:28px;font-weight:600;line-height:1.1}
+.stub-side .label{color:inherit;opacity:.8}
+.stub-side small{opacity:.85;font-size:12px}
+@media (max-width:560px){.stub{grid-template-columns:1fr}.stub-side{border-left:0;border-top:2px dashed color-mix(in srgb,var(--accent-ink) 45%,transparent)}}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:620px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:2px;min-width:0}
+.kpi .v{font-family:var(--f-mono);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted)}
+.meter{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line);margin-top:4px}
+.meter i{display:block;height:100%;background:var(--good)}
+.meter i.over{background:var(--bad)}
+
+.catbar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--surface-2)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;overflow-x:auto}
+.tabs button{flex:1;border:0;background:transparent;padding:9px 10px;border-radius:9px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.panel{display:grid;gap:14px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.field{display:grid;gap:4px;flex:1 1 140px;min-width:0}
+.field label{font-size:12px;color:var(--muted);font-weight:600}
+input,select,textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:60px}
+.btn{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:9px 14px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.sun{background:var(--sun);color:var(--sun-ink);border-color:var(--sun)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
+.btn:disabled{opacity:.55;cursor:default}
+.hint{font-size:12px;color:var(--muted)}
+.est{font-size:13px;background:color-mix(in srgb,var(--sun) 18%,var(--surface));border:1px solid color-mix(in srgb,var(--sun) 50%,var(--line));border-radius:8px;padding:8px 10px}
+
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 11px;font-size:13px;font-weight:600;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.items{display:grid;gap:8px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:start}
+.item .dot{width:10px;height:10px;border-radius:3px;margin-top:6px}
+.item .t{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.item .meta{grid-column:2/4;display:flex;flex-wrap:wrap;gap:6px 10px;font-size:12.5px;color:var(--muted);align-items:center}
+.item .price{text-align:right;font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums}
+.item .price small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
+.pill{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px solid}
+.pill.idea{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.pill.booked{color:var(--good);border-color:color-mix(in srgb,var(--good) 50%,transparent)}
+.vote{border:1px solid var(--line);background:var(--surface-2);border-radius:99px;padding:2px 9px;font-size:12px;font-weight:600}
+.vote.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.item a{color:var(--accent)}
+
+.days{display:grid;gap:12px}
+.day{display:grid;grid-template-columns:76px 1fr;gap:12px}
+.day .d{font-family:var(--f-display);font-weight:700;line-height:1.1}
+.day .d small{display:block;font-family:var(--f-body);font-weight:500;color:var(--muted);font-size:12px}
+.day ul{list-style:none;margin:0;padding:0 0 0 14px;border-left:2px solid var(--line);display:grid;gap:8px}
+.day li{display:flex;gap:10px;align-items:baseline;min-width:0}
+.day li .tm{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);min-width:44px}
+.day li .tx{flex:1;min-width:0;overflow-wrap:anywhere}
+
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+.transfer{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:var(--surface-2);border-radius:8px}
+.transfer b{font-weight:600}
+
+.crew{display:flex;flex-wrap:wrap;gap:6px}
+.crew span{background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:4px 6px 4px 11px;font-size:13px;display:inline-flex;gap:4px;align-items:center}
+.crew button{border:0;background:transparent;color:var(--muted);font-size:15px;line-height:1;padding:0 4px}
+.empty{color:var(--muted);text-align:center;padding:22px 10px;border:1px dashed var(--line);border-radius:10px;font-size:14px}
+.status{font-size:12px;color:var(--muted);text-align:center}
+.me{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+.me select{width:auto;padding:5px 8px}
+@media (prefers-reduced-motion:no-preference){.item{transition:border-color .15s}.item:hover{border-color:var(--accent)}}
+
+/* Trip options */
+.opts{display:grid;gap:12px}
+.opt{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px;min-width:0}
+.opt.lead{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.opt.chosen{border-color:var(--sun);box-shadow:0 0 0 2px var(--sun)}
+.opt-top{display:flex;gap:12px;align-items:start;justify-content:space-between}
+.opt h3{font-size:20px;line-height:1.15;overflow-wrap:anywhere}
+.opt .where{color:var(--muted);font-size:14px}
+.opt .pp{text-align:right;font-family:var(--f-mono);font-weight:600;font-size:20px;white-space:nowrap}
+.opt .pp small{display:block;font-family:var(--f-body);font-weight:500;font-size:11.5px;color:var(--muted)}
+.opt .notes{font-size:14px;margin:0;overflow-wrap:anywhere}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.badge{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+.badge.lead{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.badge.chosen{background:var(--sun);color:var(--sun-ink);border-color:var(--sun)}
+.badge.over{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,transparent)}
+.badge.under{color:var(--good);border-color:color-mix(in srgb,var(--good) 50%,transparent)}
+.votebar{height:8px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+.votebar i{display:block;height:100%;background:var(--accent)}
+.voters{font-size:13px;color:var(--muted)}
+.opt-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn.voted{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+#compare td{white-space:nowrap}
+#compare thead th{font-family:var(--f-body);font-size:12.5px;white-space:normal;min-width:96px;vertical-align:bottom}
+.tabs button{padding:9px 6px;font-size:14px}
+#compare tfoot td{font-weight:700;border-bottom:0}
+#compare .best{color:var(--good)}
+details.card summary{cursor:pointer;list-style:none}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary::before{content:"+ ";font-weight:700;color:var(--accent)}
+details[open].card summary::before{content:"– "}
+</style></head><body>
+<form class="card lock" id="lock" hidden autocomplete="off">
+  <h2>Trip code</h2>
+  <p class="hint" style="margin:0">This trip is private. Enter the code the organizer gave you.</p>
+  <input id="codeIn" type="password" placeholder="Trip code" required>
+  <button class="btn primary" type="submit">Open trip</button>
+  <p class="hint" id="lockMsg" style="margin:0;color:var(--bad)"></p>
+</form>
+<div class="wrap" id="app">
+  <div class="card" id="localBanner" hidden style="border-color:var(--bad)">
+    <b style="color:var(--bad)">Not shared yet: changes save on this device only.</b>
+    <span class="hint">The site was deployed without its server function, so friends cannot see your edits. Redeploy with the Netlify CLI or from GitHub (see README).</span>
+  </div>
+  <section class="stub" aria-label="Trip summary">
+    <div class="stub-main">
+      <span class="label" id="stubLabel">Group trip</span>
+      <h1 id="tripName">Your next trip</h1>
+      <div class="route">
+        <span id="tripDest">Add trip options to start</span>
+        <span id="tripDates"></span>
+        <span id="tripCrew">0 travellers</span>
+      </div>
+    </div>
+    <div class="stub-side">
+      <span class="label" id="ppLabel">Per person</span>
+      <span class="big" id="ppBig">$0</span>
+      <small id="ppSub">all planned costs</small>
+    </div>
+  </section>
+
+  <div class="me"><label for="meSel">I am</label><select id="meSel"><option value="">— pick your name —</option></select><span id="meHint">Pick your name to vote.</span></div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="options" aria-selected="true">Options</button>
+    <button role="tab" data-tab="costs" aria-selected="false">Costs</button>
+    <button role="tab" data-tab="plan" aria-selected="false">Itinerary</button>
+    <button role="tab" data-tab="settle" aria-selected="false">Settle up</button>
+    <button role="tab" data-tab="setup" aria-selected="false">Setup</button>
+  </nav>
+
+  <!-- OPTIONS -->
+  <section class="panel" id="p-options">
+    <div class="card" id="voteSummary"></div>
+    <div class="opts" id="opts"><div class="empty">Loading trip options…</div></div>
+    <div class="card" id="compareCard" hidden>
+      <h3 style="font-size:18px">Side by side</h3>
+      <p class="hint" style="margin:0">Cost per person, by category. Lowest total is marked.</p>
+      <div class="table-wrap"><table id="compare"></table></div>
+    </div>
+    <details class="card" id="optDetails">
+      <summary><b>Add a trip option</b> <span class="hint">— a destination and dates to vote on</span></summary>
+      <form id="optForm" autocomplete="off" style="display:grid;gap:12px;margin-top:12px">
+        <div class="row">
+          <div class="field" style="flex:2 1 200px"><label for="oName">Option name</label><input id="oName" placeholder="e.g. Beach week in Cancún" required></div>
+          <div class="field" style="flex:2 1 200px"><label for="oDest">Destination</label><input id="oDest" placeholder="Cancún, Mexico" required></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="oStart">Start</label><input id="oStart" type="date"></div>
+          <div class="field"><label for="oEnd">End</label><input id="oEnd" type="date"></div>
+        </div>
+        <div class="field"><label for="oNotes">Why this one (optional)</label><textarea id="oNotes" placeholder="All-inclusive, direct flight, beach every day"></textarea></div>
+        <div class="row"><span class="hint" style="flex:1">After you add it, add its costs in the Costs tab.</span><button class="btn primary" type="submit">Add option</button></div>
+      </form>
+    </details>
+  </section>
+
+  <!-- COSTS -->
+  <section class="panel" id="p-costs" hidden>
+    <div class="card" style="gap:8px">
+      <div class="field"><label for="optSel">Showing costs for</label><select id="optSel"></select></div>
+    </div>
+    <section class="kpis" aria-label="Cost overview">
+      <div class="kpi"><span class="label">Group total</span><span class="v" id="kTotal">$0</span><span class="s">ideas + booked</span></div>
+      <div class="kpi"><span class="label">Booked</span><span class="v" id="kBooked">$0</span><span class="s" id="kBookedS">0 items</span></div>
+      <div class="kpi"><span class="label">Still ideas</span><span class="v" id="kIdeas">$0</span><span class="s" id="kIdeasS">0 items</span></div>
+      <div class="kpi"><span class="label">Budget / person</span><span class="v" id="kBudget">—</span><div class="meter"><i id="kMeter" style="width:0%"></i></div><span class="s" id="kBudgetS">Set it in Setup</span></div>
+    </section>
+    <section class="card" aria-label="Cost by category" style="gap:6px">
+      <span class="label">Where the money goes</span>
+      <div class="catbar" id="catbar"></div>
+      <div class="legend" id="legend"></div>
+    </section>
+    <form class="card" id="itemForm" autocomplete="off">
+      <h3 style="font-size:18px" id="itemFormTitle">Add a cost</h3>
+      <div class="row">
+        <div class="field" style="flex:2 1 220px"><label for="iTitle">What</label><input id="iTitle" placeholder="e.g. Airbnb near the beach, 4 nights" required></div>
+        <div class="field"><label for="iCat">Category</label>
+          <select id="iCat"><option value="flight">Flights</option><option value="stay">Stay</option><option value="transport">Local transport</option><option value="food">Food & drinks</option><option value="activity">Activities</option><option value="other">Other</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="iAmount">Price</label><input id="iAmount" class="mono" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" required></div>
+        <div class="field"><label for="iBasis">Price is</label>
+          <select id="iBasis"><option value="group">For the whole group</option><option value="person">Per person</option></select></div>
+        <div class="field"><label for="iStatus">Status</label>
+          <select id="iStatus"><option value="idea">Idea</option><option value="booked">Booked</option></select></div>
+        <div class="field"><label for="iPaid">Paid by</label><select id="iPaid"><option value="">Nobody yet</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:2 1 240px"><label for="iUrl">Link (optional)</label><input id="iUrl" type="url" placeholder="https://"></div>
+      </div>
+      <div class="est" id="priceLinks"></div>
+      <div class="row"><span style="flex:1"></span><button type="submit" class="btn primary" id="addBtn">Add cost</button></div>
+    </form>
+    <div class="filters" id="filters">
+      <button class="chip" data-f="all" aria-pressed="true">All</button>
+      <button class="chip" data-f="idea" aria-pressed="false">Ideas</button>
+      <button class="chip" data-f="booked" aria-pressed="false">Booked</button>
+      <button class="chip" data-f="votes" aria-pressed="false">Most votes</button>
+    </div>
+    <div class="items" id="items"></div>
+  </section>
+
+  <!-- ITINERARY -->
+  <section class="panel" id="p-plan" hidden>
+    <form class="card" id="dayForm" autocomplete="off">
+      <h3 style="font-size:18px">Add to the itinerary</h3>
+      <div class="row">
+        <div class="field" style="flex:0 1 160px"><label for="dDate">Date</label><input id="dDate" type="date" required></div>
+        <div class="field" style="flex:0 1 110px"><label for="dTime">Time</label><input id="dTime" type="time"></div>
+        <div class="field" style="flex:2 1 220px"><label for="dText">Plan</label><input id="dText" placeholder="e.g. Land at 2pm, check in, night market" required></div>
+        <button class="btn primary" type="submit">Add</button>
+      </div>
+    </form>
+    <div class="card"><div class="days" id="days"><div class="empty">No plans yet. Add the first day above.</div></div></div>
+  </section>
+
+  <!-- SETTLE -->
+  <section class="panel" id="p-settle" hidden>
+    <div class="card">
+      <h3 style="font-size:18px">Who owes who</h3>
+      <p class="hint" style="margin:0" id="settleHint">Uses booked costs that have a "Paid by" name. Costs are split evenly across the whole crew.</p>
+      <div id="transfers" style="display:grid;gap:8px"></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:18px">Balances</h3>
+      <div class="table-wrap"><table><thead><tr><th>Person</th><th class="n">Paid</th><th class="n">Share</th><th class="n">Balance</th></tr></thead><tbody id="balBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="panel" id="p-setup" hidden>
+    <form class="card" id="tripForm" autocomplete="off">
+      <h3 style="font-size:18px">Trip details</h3>
+      <div class="row">
+        <div class="field" style="flex:2 1 220px"><label for="tName">Trip name</label><input id="tName" placeholder="Reading Week 2027"></div>
+        <div class="field"><label for="tCur">Currency</label><select id="tCur"><option>CAD</option><option>USD</option><option>EUR</option><option>GBP</option><option>JPY</option><option>MXN</option><option>THB</option><option>CNY</option></select></div>
+        <div class="field"><label for="tBudget">Budget per person</label><input id="tBudget" class="mono" type="number" min="0" step="1" inputmode="decimal" placeholder="1500"></div>
+      </div>
+      <div class="row"><button class="btn primary" type="submit">Save trip details</button><span class="hint" id="tripMsg"></span></div>
+    </form>
+    <form class="card" id="crewForm" autocomplete="off">
+      <h3 style="font-size:18px">The crew</h3>
+      <div class="crew" id="crewList"></div>
+      <div class="row">
+        <div class="field"><label for="cName">Add a friend</label><input id="cName" placeholder="Name"></div>
+        <button class="btn primary" type="submit">Add</button>
+      </div>
+      <p class="hint" style="margin:0">Send this site link to your friends. Anyone with the link (and the trip code, if you set one) can add options, add costs and vote.</p>
+    </form>
+  </section>
+
+  <p class="status" id="status"></p>
+</div>
+<script src="app.js"></script>
+</body></html>
